@@ -1,3 +1,4 @@
 [submodule "vendor/whatsapp-rust"]
 	path = vendor/whatsapp-rust
-	url = https://github.com/oxidezap/whatsapp-rust.git
+	url = https://github.com/marketcalls/whatsapp-rust.git
+	branch = main

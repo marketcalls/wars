@@ -38,14 +38,22 @@ rm -rf .venv target *.db qr.png miss_you.png _test_*.py
 
 ## 3. Add `whatsapp-rust` as a git submodule
 
-The Cargo.toml currently has `path = ".."` (sibling layout from the
-development location). In the standalone repo we point at a pinned
-submodule instead.
+We vendor the upstream Rust crate as a submodule tracking
+`marketcalls/whatsapp-rust`'s `main` branch. Owning the fork protects
+this repo from upstream rewrites/deletions; tracking `main` lets you
+fast-forward easily.
 
 ```bash
-git submodule add https://github.com/oxidezap/whatsapp-rust.git vendor/whatsapp-rust
-git -C vendor/whatsapp-rust checkout 8b11141bbfe21c6c9108d9e0fc5ae867454194b9
+git submodule add -b main https://github.com/marketcalls/whatsapp-rust.git vendor/whatsapp-rust
 git add .gitmodules vendor/whatsapp-rust
+```
+
+To bump to a newer upstream commit later:
+
+```bash
+git submodule update --remote vendor/whatsapp-rust
+git add vendor/whatsapp-rust
+git commit -m "Bump whatsapp-rust submodule"
 ```
 
 Then edit `Cargo.toml` and replace every `path = "../<x>"` with
