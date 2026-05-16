@@ -1,0 +1,44 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "wars"
+version = "0.1.0"
+description = "WhatsApp client for Python, powered by Rust. A thin PyO3 wrapper over whatsapp-rust."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Rajendran R / Marketcalls", email = "rajandran@marketcalls.in" }]
+requires-python = ">=3.8"
+keywords = ["whatsapp", "messaging", "bot", "notifications", "wa", "rust", "pyo3"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Rust",
+    "Topic :: Communications :: Chat",
+]
+dependencies = []
+
+[project.optional-dependencies]
+qr = ["qrcode>=7.4"]
+dev = ["pytest>=7", "qrcode>=7.4", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/marketcalls/wars"
+Repository = "https://github.com/marketcalls/wars"
+Issues = "https://github.com/marketcalls/wars/issues"
+
+[tool.maturin]
+# `python-source` lets us ship a small pure-Python wrapper module that
+# re-exports the native `_wars` extension. This is the standard
+# "py + rust" hybrid layout that pyo3+maturin supports.
+python-source = "."
+module-name = "wars._wars"
+features = ["pyo3/extension-module"]
+strip = true

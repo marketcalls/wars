@@ -1,0 +1,48 @@
+[package]
+name = "wars"
+version = "0.1.0"
+edition = "2021"
+authors = ["Rajendran R / Marketcalls <rajandran@marketcalls.in>"]
+license = "MIT"
+description = "Python bindings for whatsapp-rust — pip install wars"
+readme = "README.md"
+
+[lib]
+name = "_wars"
+crate-type = ["cdylib"]
+
+[features]
+# abi3 = one wheel per platform, works on Python 3.8+
+default = ["abi3"]
+abi3 = ["pyo3/abi3-py38"]
+
+[dependencies]
+# Upstream is vendored as a git submodule at vendor/whatsapp-rust, pinned
+# to a specific commit (see .gitmodules + the Cargo.lock for reproducibility).
+# Bump the pin by `git -C vendor/whatsapp-rust checkout <newcommit>` and
+# committing the submodule SHA change.
+whatsapp-rust = { path = "vendor/whatsapp-rust", default-features = false, features = [
+    "sqlite-storage",
+    "tokio-transport",
+    "tokio-runtime",
+    "tokio-native",
+    "ureq-client",
+] }
+wacore = { path = "vendor/whatsapp-rust/wacore", default-features = false }
+wacore-binary = { path = "vendor/whatsapp-rust/wacore/binary", default-features = false }
+waproto = { path = "vendor/whatsapp-rust/waproto" }
+whatsapp-rust-tokio-transport = { path = "vendor/whatsapp-rust/transports/tokio-transport" }
+whatsapp-rust-ureq-http-client = { path = "vendor/whatsapp-rust/http_clients/ureq-client" }
+
+pyo3 = { version = "0.22", features = ["extension-module"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+crossbeam-channel = "0.5"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

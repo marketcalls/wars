@@ -1,0 +1,16 @@
+target/
+*.so
+*.pyd
+*.dylib
+__pycache__/
+*.egg-info/
+build/
+dist/
+.venv/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+# transient
+qr.png
+*.bak
