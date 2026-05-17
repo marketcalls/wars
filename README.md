@@ -35,7 +35,7 @@ pip install wars
 ```python
 from wars import WhatsApp
 
-wa = WhatsApp(owner="919876543210")
+wa = WhatsApp()
 wa.pair()                                # QR shows inline; scan it
 wa.send("Hello from wars")               # works after pair
 ```
@@ -70,14 +70,15 @@ the session bytes into your own DB — see *Persist the session* below.
 
 ### 2. Send a message
 
-One unified `send()` for every pattern. Pass `owner=` once and single-arg
-sends go to your own number — perfect for personal alerts.
+One unified `send()` for every pattern. Single-arg `send("text")`
+automatically routes to your own number after pairing — perfect for
+personal alerts.
 
 ```python
 from wars import WhatsApp
 
 # No db_path → in-memory session. Re-pair if the process restarts.
-wa = WhatsApp(owner="14155550100")
+wa = WhatsApp()
 wa.connect()
 wa.wait_until_ready()
 
@@ -117,7 +118,7 @@ import os, sqlite3, tempfile
 fd, pair_db = tempfile.mkstemp(suffix=".db", prefix="wars_pair_")
 os.close(fd); os.chmod(pair_db, 0o600)
 
-wa = WhatsApp(pair_db, owner="919876543210")
+wa = WhatsApp(pair_db)
 wa.connect(); wa.wait_until_ready()              # scan QR
 blob = wa.export_session()                       # ~300 KB bytes
 wa.disconnect()
@@ -130,7 +131,7 @@ db.execute("INSERT OR REPLACE INTO wa VALUES (1, ?)", (blob,)); db.commit()
 
 # Every run after — load and resume. No QR.
 blob = db.execute("SELECT blob FROM wa WHERE id = 1").fetchone()[0]
-wa = WhatsApp.from_bytes(blob, owner="919876543210")
+wa = WhatsApp.from_bytes(blob)
 wa.connect()                                     # instant reconnect
 ```
 
@@ -146,7 +147,7 @@ and embed it in HTML — no PNG ever touches the disk:
 ```python
 from wars import WhatsApp, qr_to_data_url
 
-wa = WhatsApp(owner="919876543210")
+wa = WhatsApp()
 latest_qr = {"data_url": None}
 
 @wa.on_qr
@@ -173,7 +174,7 @@ If you want SQLite-on-disk (simpler than DB-stored bytes for solo runs),
 pass a path:
 
 ```python
-wa = WhatsApp("whatsapp.db", owner="919876543210")
+wa = WhatsApp("whatsapp.db")
 ```
 
 The file lives wherever the path points. Treat it like any other secret
@@ -185,7 +186,7 @@ The file lives wherever the path points. Treat it like any other secret
 ```python
 from wars import WhatsApp, Message
 
-wa = WhatsApp("whatsapp.db", owner="14155550100")
+wa = WhatsApp("whatsapp.db")
 
 @wa.on_message
 def handle(msg: Message):
@@ -226,7 +227,7 @@ def wa() -> WhatsApp:
     with _lock:
         if _wa is not None:
             return _wa
-        client = WhatsApp("whatsapp.db", owner=OWNER)
+        client = WhatsApp("whatsapp.db")
         client.connect()
         client.wait_until_ready(timeout=60)
         atexit.register(client.disconnect)
@@ -255,15 +256,18 @@ Works the same way under **Django** (call from `AppConfig.ready()`), **FastAPI**
 
 ## API
 
-### `WhatsApp(db_path=None, owner=None, log_level=None)`
+### `WhatsApp(db_path=None, log_level=None)`
 
 Construct a client. Does not connect.
 
 - `db_path=None` (default) — in-memory session, no filesystem touched.
 - `db_path="path.db"` — SQLite on disk, session survives restarts.
-- `owner=` — default recipient for single-arg `send()` calls.
 
-### `WhatsApp.from_bytes(blob, owner=None)`
+Single-arg `send("text")` defaults to the device's own phone number
+(read from the paired-device record). No explicit owner is needed —
+just call `wa.pair()` first.
+
+### `WhatsApp.from_bytes(blob)`
 
 Class method. Restore a session previously exported with `export_session()`.
 Use this to load a paired session from your own database.

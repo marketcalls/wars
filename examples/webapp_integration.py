@@ -38,7 +38,8 @@ from wars import WhatsApp
 
 # ─── Config ─────────────────────────────────────────────────────────
 APP_DB = os.environ.get("WARS_DB", "app.db")
-OWNER = os.environ.get("WARS_OWNER", "14155550100")  # your phone, E.164 digits
+# Default recipient comes from the paired device — no env var needed.
+# For sends to a different number, pass `to=` to notify()/wa().send().
 
 
 # ─── DB helpers (one tiny table beside your other tables) ───────────
@@ -92,7 +93,7 @@ def wa() -> WhatsApp:
                 "`python examples/webapp_integration.py pair --phone <YOURS>` "
                 "once to pair."
             )
-        client = WhatsApp.from_bytes(blob, owner=OWNER)
+        client = WhatsApp.from_bytes(blob)
         client.connect()
         client.wait_until_ready(timeout=60)
         atexit.register(client.disconnect)
@@ -102,12 +103,13 @@ def wa() -> WhatsApp:
 
 # ─── Notification helpers — what your Flask handlers call ───────────
 def notify(text: str, to: str | None = None) -> str:
-    """Send a notification. Defaults to OWNER."""
-    return wa().send(to or OWNER, text)
+    """Send a notification. Defaults to the device's own paired number."""
+    return wa().send(to, text) if to else wa().send(text)
 
 
 def notify_with_image(text: str, image_path: str, to: str | None = None) -> str:
-    return wa().send(to or OWNER, image=image_path, caption=text)
+    target = to or wa()._inner.own_phone()
+    return wa().send(target, image=image_path, caption=text)
 
 
 # ─── One-time pair: pair the device, then stash session in app.db ───
@@ -126,7 +128,7 @@ def _do_pair(phone: str | None) -> int:
     os.close(fd)
     os.chmod(pair_db, 0o600)
 
-    client = WhatsApp(pair_db, owner=OWNER, log_level="error")
+    client = WhatsApp(pair_db, log_level="error")
 
     @client.on_qr
     def _qr(code):
@@ -161,7 +163,7 @@ def main() -> int:
     sub = p.add_subparsers(dest="cmd")
     p_pair = sub.add_parser("pair", help=f"Pair the device and stash session in {APP_DB}")
     p_pair.add_argument("--phone", help="E.164 digits, enables pair code in addition to QR")
-    sub.add_parser("test", help="Send a test message to OWNER")
+    sub.add_parser("test", help="Send a test message to your own number")
     args = p.parse_args()
 
     if args.cmd == "pair":

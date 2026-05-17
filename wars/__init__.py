@@ -8,11 +8,9 @@ Quick start
 -----------
     from wars import WhatsApp
 
-    wa = WhatsApp(owner="14155550100")
-    wa.on_qr(lambda code: wa.print_qr(code))
-    wa.connect()
-    wa.wait_until_ready()
-    wa.send("Hello from wars")
+    wa = WhatsApp()
+    wa.pair()                          # scan the inline QR
+    wa.send("Hello from wars")         # routes to your own number
 """
 
 from __future__ import annotations
@@ -96,7 +94,6 @@ class WhatsApp:
     def __init__(
         self,
         db_path: Optional[str] = None,
-        owner: Optional[str] = None,
         log_level: Optional[str] = None,
     ):
         """
@@ -118,13 +115,16 @@ class WhatsApp:
             For storing the session inside *your own* database
             (e.g. ``app.db``), keep this as ``None`` and round-trip
             through :meth:`export_session` / :meth:`from_bytes`.
-        owner : str, optional
-            Default recipient for single-argument ``send()`` calls — usually
-            your own phone number. Lets you write ``wa.send("alert text")``
-            without repeating the JID.
         log_level : str, optional
             Rust log level: "error" | "warn" | "info" | "debug" | "trace".
             Defaults to "warn".
+
+        Notes
+        -----
+        Single-argument ``send("text")`` calls default to the device's
+        own phone number — read from the paired device record after
+        :meth:`pair` (or :meth:`wait_until_ready`) completes. No
+        explicit owner is required.
         """
         if db_path is None:
             # Each instance gets its own isolated in-memory DB. ``cache=shared``
@@ -137,7 +137,6 @@ class WhatsApp:
             )
         self._db_path = db_path
         self._inner = _RustWhatsApp(db_path, log_level)
-        self._owner = owner
 
     # ── session persistence (for storing in your own DB) ──────────────
 
@@ -162,8 +161,8 @@ class WhatsApp:
         Typical pairing flow::
 
             import os
-            wa = WhatsApp("pair_temp.db", owner=ME)         # file-backed
-            wa.connect(); wa.wait_until_ready()             # pair via QR
+            wa = WhatsApp("pair_temp.db")                   # file-backed
+            wa.pair()                                        # scan QR
             blob = wa.export_session()                       # dump bytes
             wa.disconnect()
             os.unlink("pair_temp.db")                        # clean up
@@ -183,8 +182,8 @@ class WhatsApp:
                 "export_session() requires a file-backed db_path — the "
                 "in-memory default cannot be snapshotted from Python "
                 "(Rust and Python use separate SQLite library instances).\n\n"
-                "Construct with `WhatsApp(\"pair_temp.db\", owner=...)`, "
-                "pair, export, then delete the file."
+                "Construct with `WhatsApp(\"pair_temp.db\")`, pair, "
+                "export, then delete the file."
             )
 
         # Force pending device-state writes to land in SQLite before we snapshot.
@@ -213,7 +212,6 @@ class WhatsApp:
     def from_bytes(
         cls,
         blob: bytes,
-        owner: Optional[str] = None,
         log_level: Optional[str] = None,
     ) -> "WhatsApp":
         """
@@ -226,15 +224,15 @@ class WhatsApp:
         Typical flow::
 
             # First time — pair to a temp file, then stash bytes in your DB:
-            wa = WhatsApp("pair_temp.db", owner=ME)
-            wa.connect(); wa.wait_until_ready()           # pair via QR
+            wa = WhatsApp("pair_temp.db")
+            wa.pair()                                     # scan QR
             blob = wa.export_session()
             db.execute("UPDATE secrets SET wa = ? WHERE id = 1", (blob,))
 
             # Every run after:
             blob = db.execute("SELECT wa FROM secrets WHERE id = 1").fetchone()[0]
-            wa = WhatsApp.from_bytes(blob, owner=ME)
-            wa.connect()                                  # no QR — reuses session
+            wa = WhatsApp.from_bytes(blob)
+            wa.connect(); wa.wait_until_ready()           # no QR
         """
         fd, path = tempfile.mkstemp(suffix=".db", prefix="wars_session_")
         try:
@@ -245,7 +243,7 @@ class WhatsApp:
         # this earlier because SQLite holds an open handle for the lifetime
         # of the WhatsApp instance.
         atexit.register(_safe_unlink, path)
-        return cls(path, owner=owner, log_level=log_level)
+        return cls(path, log_level=log_level)
 
     # ── one-shot interactive helper ───────────────────────────────────
 
@@ -264,9 +262,9 @@ class WhatsApp:
         Example (Jupyter)::
 
             from wars import WhatsApp
-            wa = WhatsApp(owner="14155550100")
+            wa = WhatsApp()
             wa.pair()                                # scan the inline QR
-            wa.send("Hello from wars")               # works
+            wa.send("Hello from wars")               # routes to your own number
         """
         if self.is_connected():
             return
@@ -389,12 +387,14 @@ class WhatsApp:
         return self._inner.send_text(jid, text)
 
     def _default_owner(self) -> str:
-        if not self._owner:
+        own = self._inner.own_phone()
+        if not own:
             raise ValueError(
-                "no default recipient — pass owner=… to WhatsApp(...) "
-                "or call send(to, body)"
+                "no default recipient — pair the device first "
+                "(`wa.pair()` or `wa.connect()` + `wa.wait_until_ready()`), "
+                "or call `wa.send(to, body)` with an explicit recipient."
             )
-        return self._owner
+        return own
 
     # Explicit forms (kept for power users / clarity in code review)
 

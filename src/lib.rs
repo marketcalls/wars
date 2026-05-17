@@ -210,6 +210,20 @@ impl WhatsApp {
             .unwrap_or(false)
     }
 
+    /// The phone number this device is paired to, as raw digits.
+    /// `None` before pairing completes. Read from `device.pn` snapshot.
+    fn own_phone(&self, py: Python<'_>) -> PyResult<Option<String>> {
+        let Some(client) = self.client.as_ref().cloned() else {
+            return Ok(None);
+        };
+        let runtime = self.runtime.clone();
+        let device = py.allow_threads(|| {
+            runtime
+                .block_on(async move { client.persistence_manager().get_device_snapshot().await })
+        });
+        Ok(device.pn.as_ref().map(|j| j.user.to_string()))
+    }
+
     /// Force the persistence manager to drain queued device state to the
     /// SQLite backend immediately. Without this, fresh writes may sit in
     /// memory for up to 30 s (the background saver interval) and a
