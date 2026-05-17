@@ -30,15 +30,29 @@ pip install wars
 
 ### 1. Pair your phone (one-time)
 
-Grab the example script from the repo and run it:
+**In a Jupyter notebook** — one cell, end-to-end:
+
+```python
+from wars import WhatsApp
+
+wa = WhatsApp(owner="919876543210")
+wa.pair()                                # QR shows inline; scan it
+wa.send("Hello from wars")               # works after pair
+```
+
+`wa.pair()` blocks until the device is paired or 5 minutes elapse,
+displays a fresh QR image each time WhatsApp rotates it (~every 30s),
+and prints any pair code WhatsApp issues. In a terminal it falls back
+to an ASCII QR automatically.
+
+**From the command line** — useful for headless setup:
 
 ```bash
 curl -O https://raw.githubusercontent.com/marketcalls/wars/main/examples/pair.py
 python pair.py --phone 919876543210
 ```
 
-Prints a QR in the terminal and, if WhatsApp accepts the request, an
-8-character pair code. Use either:
+Use either:
 
 - **QR:** WhatsApp on phone → *Linked devices* → *Link a device* → scan.
 - **Code:** *Linked devices* → *Link with phone number* → type the code.
@@ -256,6 +270,7 @@ Use this to load a paired session from your own database.
 
 | Method | Returns | Notes |
 |---|---|---|
+| **`pair(phone=None, timeout=300)`** | `None` | One-call interactive pairing helper. Renders QR inline in Jupyter, ASCII in a terminal. Blocks until paired. |
 | `connect(phone=None)` | `None` | Start background run loop. Optional E.164 digits enable pair-code auth. |
 | `wait_until_ready(timeout=120)` | `None` | Block until paired+online. Raises `TimeoutError`. |
 | `is_connected()` | `bool` | |
@@ -274,6 +289,7 @@ Use this to load a paired session from your own database.
 | `events(timeout=1.0)` | iterator | yields raw dicts |
 | `run_forever()` | `None` | Block until Ctrl-C |
 | `print_qr(code)` *(static)* | `None` | Render QR to stdout (terminal). |
+| `show_qr(code)` *(module fn)* | `None` | Render QR inline in Jupyter (PNG), or ASCII in a terminal. |
 | `qr_to_base64(code)` *(static)* | `str` | QR → base64 PNG. No filesystem I/O. |
 | `qr_to_data_url(code)` *(static)* | `str` | QR → `data:image/png;base64,…` URL. |
 

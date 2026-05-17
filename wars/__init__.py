@@ -31,6 +31,7 @@ __all__ = [
     "WhatsApp",
     "Message",
     "print_qr",
+    "show_qr",
     "qr_to_base64",
     "qr_to_data_url",
     "__version__",
@@ -246,6 +247,36 @@ class WhatsApp:
         # of the WhatsApp instance.
         atexit.register(_safe_unlink, path)
         return cls(path, owner=owner, log_level=log_level)
+
+    # ── one-shot interactive helper ───────────────────────────────────
+
+    def pair(self, phone: Optional[str] = None, timeout: float = 300.0) -> None:
+        """
+        One-call pairing helper for notebooks and scripts.
+
+        Equivalent to wiring ``on_qr`` / ``on_pair_code`` / ``on_connected``
+        yourself and calling ``connect()`` + ``wait_until_ready()``. The QR
+        is rendered with :func:`show_qr` — inline in Jupyter, ASCII in a
+        terminal. Blocks until the device is paired or ``timeout`` seconds
+        elapse.
+
+        Idempotent: if already connected, returns immediately.
+
+        Example (Jupyter)::
+
+            from wars import WhatsApp
+            wa = WhatsApp(owner="14155550100")
+            wa.pair()                                # scan the inline QR
+            wa.send("Hello from wars")               # works
+        """
+        if self.is_connected():
+            return
+
+        self.on_qr(show_qr)
+        self.on_pair_code(lambda code: print(f"Pair code: {code}"))
+
+        self.connect(phone=phone)
+        self.wait_until_ready(timeout=timeout)
 
     # ── connection ────────────────────────────────────────────────────
 
@@ -541,3 +572,45 @@ def qr_to_data_url(code: str) -> str:
     I/O. Requires the optional ``qrcode`` extra.
     """
     return f"data:image/png;base64,{qr_to_base64(code)}"
+
+
+def _is_jupyter() -> bool:
+    """Best-effort detection of an interactive Jupyter / IPython kernel."""
+    try:
+        from IPython import get_ipython  # type: ignore
+
+        ip = get_ipython()
+        if ip is None:
+            return False
+        # ZMQInteractiveShell = Jupyter notebook / qtconsole.
+        # TerminalInteractiveShell = `ipython` in a terminal — fall back
+        # to plain stdout there.
+        return type(ip).__name__ == "ZMQInteractiveShell"
+    except Exception:
+        return False
+
+
+def show_qr(code: str) -> None:
+    """Display a QR for ``code`` in whatever surface is available.
+
+    - In a Jupyter notebook: renders the QR as an inline PNG image (uses
+      ``IPython.display.Image``).
+    - In a regular terminal: prints an ASCII QR via :func:`print_qr`.
+
+    Requires the optional ``qrcode`` extra: ``pip install wars[qr]``.
+    """
+    if _is_jupyter():
+        try:
+            import io
+
+            import qrcode  # type: ignore
+            from IPython.display import Image, display  # type: ignore
+
+            buf = io.BytesIO()
+            qrcode.make(code).save(buf, format="PNG")
+            display(Image(data=buf.getvalue()))
+            return
+        except ImportError:
+            # Fall through to the terminal renderer below.
+            pass
+    print_qr(code)
