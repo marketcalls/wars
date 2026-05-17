@@ -6,12 +6,17 @@
 //! registered with `set_on_*`, invoked under the GIL on a runtime worker, and
 //! (2) via a crossbeam queue drained by `next_event()` for Flask-style polling.
 
+// pyo3 0.22's `#[pymethods]` macro emits `Into::into` shims on every `PyResult`
+// return value — clippy flags each as `useless_conversion` even though the
+// generated code is fine. Silence at the crate level; revisit on pyo3 0.23+.
+#![allow(clippy::useless_conversion)]
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
-use crossbeam_channel::{Receiver, Sender, TryRecvError};
+use crossbeam_channel::{Receiver, Sender};
 use pyo3::exceptions::{PyRuntimeError, PyTimeoutError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -22,11 +27,11 @@ use wacore::proto_helpers::MessageExt;
 use wacore::types::events::Event;
 use wacore_binary::Jid;
 use waproto::whatsapp as wa;
-use whatsapp_rust::TokioRuntime;
 use whatsapp_rust::bot::{Bot, BotHandle};
 use whatsapp_rust::client::Client;
 use whatsapp_rust::pair_code::PairCodeOptions;
 use whatsapp_rust::store::SqliteStore;
+use whatsapp_rust::TokioRuntime;
 use whatsapp_rust_tokio_transport::TokioWebSocketTransportFactory;
 use whatsapp_rust_ureq_http_client::UreqHttpClient;
 
@@ -255,7 +260,15 @@ impl WhatsApp {
     ) -> PyResult<String> {
         let (bytes, _) = bytes_from_py(py, &data)?;
         let mime = sniff_mime_image(&bytes).unwrap_or("image/jpeg").to_string();
-        self.send_media_inner(to, bytes, MediaType::Image, MediaKind::Image, mime, caption, None)
+        self.send_media_inner(
+            to,
+            bytes,
+            MediaType::Image,
+            MediaKind::Image,
+            mime,
+            caption,
+            None,
+        )
     }
 
     /// Send a document (any file). `data` is a filesystem path or bytes.
@@ -271,7 +284,9 @@ impl WhatsApp {
     ) -> PyResult<String> {
         let (bytes, derived_name) = bytes_from_py(py, &data)?;
         let mime = mimetype.unwrap_or_else(|| "application/octet-stream".to_string());
-        let fname = filename.or(derived_name).unwrap_or_else(|| "document".to_string());
+        let fname = filename
+            .or(derived_name)
+            .unwrap_or_else(|| "document".to_string());
         self.send_media_inner(
             to,
             bytes,
@@ -326,11 +341,8 @@ impl WhatsApp {
     /// Drain all queued events without blocking. Returns a list.
     fn drain_events(&self, py: Python<'_>) -> PyResult<Vec<PyObject>> {
         let mut out = Vec::new();
-        loop {
-            match self.event_rx.try_recv() {
-                Ok(e) => out.push(event_to_pydict(py, e)?),
-                Err(TryRecvError::Empty | TryRecvError::Disconnected) => break,
-            }
+        while let Ok(e) = self.event_rx.try_recv() {
+            out.push(event_to_pydict(py, e)?);
         }
         Ok(out)
     }
@@ -363,6 +375,7 @@ impl WhatsApp {
             .ok_or_else(|| PyRuntimeError::new_err("not connected — call connect() first"))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn send_media_inner(
         &self,
         to: &str,
