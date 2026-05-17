@@ -34,9 +34,13 @@ jobs:
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             manylinux: 2_28
-          - os: macos-13              # Intel
+          # Both Mac wheels build on Apple Silicon runners (abundant +
+          # ~3 min compile). `macos-13` Intel runners are scarce and were
+          # blocking releases for 15-30 min queue wait. Maturin cross-
+          # compiles x86_64 wheels cleanly from arm64 hosts.
+          - os: macos-14
             target: x86_64-apple-darwin
-          - os: macos-14              # Apple Silicon
+          - os: macos-14
             target: aarch64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
