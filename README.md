@@ -1,9 +1,9 @@
 # wars
 
 **WhatsApp client for Python, powered by Rust.** A thin PyO3 wrapper over
-[whatsapp-rust](https://github.com/jlucaso1/whatsapp-rust). Drop it into
-any Python app to send and receive WhatsApp messages — no Node.js sidecar,
-no separate server, no IPC.
+[whatsapp-rust](https://github.com/marketcalls/whatsapp-rust) (vendored
+as a submodule). Drop it into any Python app to send and receive
+WhatsApp messages — no Node.js sidecar, no separate server, no IPC.
 
 > `wars` is an **unofficial** library — it is not built by, affiliated with,
 > endorsed by, or sponsored by WhatsApp / Meta. "WhatsApp" and related
@@ -305,12 +305,16 @@ media_type: str     # "" / "image" / "document" / ...
 ## Building from source
 
 ```bash
-git clone https://github.com/jlucaso1/whatsapp-rust
-cd whatsapp-rust/python
+git clone --recursive https://github.com/marketcalls/wars
+cd wars
 uv venv && source .venv/bin/activate
 uv pip install maturin
 maturin develop --release        # build + install into current venv
 ```
+
+`--recursive` is required because `wars` vendors the upstream Rust crate
+as a submodule at `vendor/whatsapp-rust`. If you forgot it, run
+`git submodule update --init --recursive` after cloning.
 
 The first build takes ~5 min (compiles the whole workspace); incremental
 builds are seconds.
@@ -354,9 +358,10 @@ Signal Protocol, binary stanza encoding, media encryption, every byte that
 goes on the wire — is done by the projects below. If `wars` is useful to
 you, please go support them:
 
-- **[whatsapp-rust](https://github.com/jlucaso1/whatsapp-rust)** by
-  [@jlucaso1](https://github.com/jlucaso1) — the Rust client that this package
-  wraps. Without it, `wars` is nothing.
+- **[whatsapp-rust](https://github.com/marketcalls/whatsapp-rust)**
+  (originally by [@jlucaso1](https://github.com/jlucaso1/whatsapp-rust))
+  — the Rust client that this package wraps, vendored here as a fork
+  for stable supply-chain. Without it, `wars` is nothing.
 - **[Baileys](https://github.com/WhiskeySockets/Baileys)** by the
   [WhiskeySockets](https://github.com/WhiskeySockets) maintainers — the
   TypeScript reference implementation that `whatsapp-rust` learns from for
@@ -398,7 +403,9 @@ Thus, the maintainers of the project can't be held liable for any potential
 misuse of this project.
 
 `wars` also bundles and statically links the upstream
-[`whatsapp-rust`](https://github.com/jlucaso1/whatsapp-rust) crate, also
+[`whatsapp-rust`](https://github.com/marketcalls/whatsapp-rust) crate
+(a fork of [@jlucaso1's original](https://github.com/jlucaso1/whatsapp-rust)),
+also
 distributed under the MIT License (Copyright (c) 2025 João Lucas de
 Oliveira Lopes). See [`LICENSE`](LICENSE) for the full combined notice.
 
