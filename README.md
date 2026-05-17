@@ -165,7 +165,7 @@ def pair_qr():
 ```
 
 Also available: `qr_to_base64(code)` for the raw base64 string without the
-`data:` prefix. Both require the `qrcode` extra (`pip install wars[qr]`).
+`data:` prefix.
 
 ### 5. Or: just use a file path
 

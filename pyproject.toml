@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "wars"
-version = "0.1.1"
+version = "0.1.2"
 description = "WhatsApp client for Python, powered by Rust. A thin PyO3 wrapper over whatsapp-rust."
 readme = "README.md"
 license = { text = "MIT" }
@@ -23,11 +23,13 @@ classifiers = [
     "Programming Language :: Rust",
     "Topic :: Communications :: Chat",
 ]
-dependencies = []
+# QR rendering is part of the user-facing API (the pair() flow shows a
+# QR), so qrcode+Pillow are required, not optional. `qrcode[pil]` pulls
+# in Pillow which handles PNG generation for `show_qr` / `qr_to_base64`.
+dependencies = ["qrcode[pil]>=7.4"]
 
 [project.optional-dependencies]
-qr = ["qrcode>=7.4"]
-dev = ["pytest>=7", "qrcode>=7.4", "ruff>=0.6"]
+dev = ["pytest>=7", "ruff>=0.6"]
 
 [project.urls]
 Homepage = "https://github.com/marketcalls/wars"

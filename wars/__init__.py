@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import atexit
 import os
-import sys
 import tempfile
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, Optional, Union
@@ -527,17 +526,9 @@ def _safe_unlink(path: str) -> None:
 
 
 def print_qr(code: str) -> None:
-    """Render a QR code to stdout using the optional `qrcode` extra."""
-    try:
-        import qrcode  # type: ignore
-    except ImportError:
-        print(
-            "wars: install the QR extra to render QR codes inline:\n"
-            "    pip install wars[qr]\n"
-            f"Raw QR payload (encode this yourself):\n{code}",
-            file=sys.stderr,
-        )
-        return
+    """Render a QR code to stdout as an ASCII block."""
+    import qrcode
+
     q = qrcode.QRCode(border=1, error_correction=qrcode.constants.ERROR_CORRECT_L)
     q.add_data(code)
     q.make()
@@ -547,19 +538,13 @@ def print_qr(code: str) -> None:
 def qr_to_base64(code: str) -> str:
     """Encode the QR as a base64 PNG string. No filesystem I/O.
 
-    Requires the optional ``qrcode`` extra. Returns the raw base64 (no
-    ``data:`` prefix); for the data URL form use :func:`qr_to_data_url`.
+    Returns the raw base64 (no ``data:`` prefix); for the data URL form
+    use :func:`qr_to_data_url`.
     """
     import base64
     import io
 
-    try:
-        import qrcode  # type: ignore
-    except ImportError as e:
-        raise ImportError(
-            "wars: qr_to_base64 needs the qrcode extra — "
-            "`pip install wars[qr]`"
-        ) from e
+    import qrcode
 
     buf = io.BytesIO()
     qrcode.make(code).save(buf, format="PNG")
@@ -569,7 +554,7 @@ def qr_to_base64(code: str) -> str:
 def qr_to_data_url(code: str) -> str:
     """Encode the QR as a ``data:image/png;base64,...`` URL — drop into an
     HTML ``<img src=...>`` for browser-based pairing flows. No filesystem
-    I/O. Requires the optional ``qrcode`` extra.
+    I/O.
     """
     return f"data:image/png;base64,{qr_to_base64(code)}"
 
@@ -593,24 +578,22 @@ def _is_jupyter() -> bool:
 def show_qr(code: str) -> None:
     """Display a QR for ``code`` in whatever surface is available.
 
-    - In a Jupyter notebook: renders the QR as an inline PNG image (uses
-      ``IPython.display.Image``).
+    - In a Jupyter notebook: renders the QR as an inline PNG image,
+      replacing any previously-displayed QR in the same cell (so
+      rotating QRs don't stack).
     - In a regular terminal: prints an ASCII QR via :func:`print_qr`.
-
-    Requires the optional ``qrcode`` extra: ``pip install wars[qr]``.
     """
     if _is_jupyter():
-        try:
-            import io
+        import io
 
-            import qrcode  # type: ignore
-            from IPython.display import Image, display  # type: ignore
+        import qrcode
+        from IPython.display import Image, clear_output, display
 
-            buf = io.BytesIO()
-            qrcode.make(code).save(buf, format="PNG")
-            display(Image(data=buf.getvalue()))
-            return
-        except ImportError:
-            # Fall through to the terminal renderer below.
-            pass
+        # `wait=True` defers the clear until the next display call so the
+        # cell doesn't flicker empty between rotations.
+        clear_output(wait=True)
+        buf = io.BytesIO()
+        qrcode.make(code).save(buf, format="PNG")
+        display(Image(data=buf.getvalue()))
+        return
     print_qr(code)
