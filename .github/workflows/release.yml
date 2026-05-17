@@ -55,8 +55,11 @@ jobs:
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux || 'auto' }}
-          args: --release --out dist --no-sdist
+          args: --release --out dist
           # abi3 wheels — one wheel per platform covers Python 3.8 onwards.
+          # `maturin build` is wheels-only by default; we deliberately skip
+          # sdist because the `path = "vendor/whatsapp-rust"` dep does not
+          # resolve from a tarball.
 
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
