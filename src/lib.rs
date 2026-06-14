@@ -221,8 +221,7 @@ impl WhatsApp {
         };
         let runtime = self.runtime.clone();
         let device = py.allow_threads(|| {
-            runtime
-                .block_on(async move { client.persistence_manager().get_device_snapshot() })
+            runtime.block_on(async move { client.persistence_manager().get_device_snapshot() })
         });
         Ok(device.pn.as_ref().map(|j| j.user.to_string()))
     }

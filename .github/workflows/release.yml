@@ -46,6 +46,15 @@ jobs:
             target: x86_64-pc-windows-msvc
 
     steps:
+      # The vendored waproto crate validates a SHA256 of whatsapp.proto /
+      # whatsapp.desc in its build.rs. Windows runners default to
+      # core.autocrlf=true, which rewrites LF→CRLF on checkout and breaks the
+      # checksum. Force LF before checkout (no-op on Linux/macOS).
+      - name: Keep LF line endings (waproto checksum)
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
       - uses: actions/checkout@v4
         with:
           submodules: recursive       # pulls in vendor/whatsapp-rust
