@@ -134,7 +134,7 @@ impl WhatsApp {
 
         let (client, handle) = runtime
             .block_on(async move {
-                let backend = Arc::new(SqliteStore::new(&db).await.context("open sqlite")?);
+                let backend = SqliteStore::new(&db).await.context("open sqlite")?;
 
                 let mut builder = Bot::builder()
                     .with_backend(backend)
@@ -150,7 +150,7 @@ impl WhatsApp {
                     });
                 }
 
-                let mut bot = builder
+                let bot = builder
                     .on_event(move |event, _client| {
                         let event_tx = event_tx.clone();
                         let callbacks = callbacks.clone();
@@ -163,7 +163,10 @@ impl WhatsApp {
                     .context("build bot")?;
 
                 let client = bot.client();
-                let handle = bot.run().await.context("run bot")?;
+                // `run(self)` now blocks until shutdown; `spawn(self)` runs the
+                // bot in the background and returns the BotHandle (the pre-#852
+                // behavior of the old `run().await`).
+                let handle = bot.spawn();
                 anyhow::Ok((client, handle))
             })
             .map_err(|e| PyRuntimeError::new_err(format!("connect failed: {e:#}")))?;
@@ -219,7 +222,7 @@ impl WhatsApp {
         let runtime = self.runtime.clone();
         let device = py.allow_threads(|| {
             runtime
-                .block_on(async move { client.persistence_manager().get_device_snapshot().await })
+                .block_on(async move { client.persistence_manager().get_device_snapshot() })
         });
         Ok(device.pn.as_ref().map(|j| j.user.to_string()))
     }

@@ -4,11 +4,11 @@ build-backend = "maturin"
 
 [project]
 name = "wars"
-version = "0.1.3"
+version = "0.1.4"
 description = "WhatsApp client for Python, powered by Rust. A thin PyO3 wrapper over whatsapp-rust."
 readme = "README.md"
 license = { text = "MIT" }
-authors = [{ name = "Rajendran R / Marketcalls", email = "rajandran@marketcalls.in" }]
+authors = [{ name = "Rajandran R / Marketcalls", email = "rajandran@marketcalls.in" }]
 requires-python = ">=3.8"
 keywords = ["whatsapp", "messaging", "bot", "notifications", "wa", "rust", "pyo3"]
 classifiers = [
