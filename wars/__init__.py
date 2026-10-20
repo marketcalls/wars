@@ -172,10 +172,18 @@ class WhatsApp:
         -----
         - Forces a flush of pending writes from the Rust persistence layer
           first (the background saver only runs every 30 s).
-        - Uses SQLite's online backup API via the stdlib ``sqlite3`` module,
+        - Uses SQLite's online backup API from a short-lived child process,
           so it works while the client is connected without disrupting writes.
+          The snapshot must not be taken in this process: Rust's bundled
+          SQLite already holds the file open here, and a second SQLite
+          library in the same process shares its POSIX locks without knowing
+          about them. Closing that second connection unlinked the live
+          database's ``-shm`` file, after which every Rust write failed with
+          "database operation error" (https://sqlite.org/howtocorrupt.html,
+          section 2.2).
         """
-        import sqlite3
+        import subprocess
+        import sys
 
         if "mode=memory" in self._db_path:
             raise RuntimeError(
@@ -190,16 +198,15 @@ class WhatsApp:
         if self.is_connected():
             self._inner.flush()
 
-        src = sqlite3.connect(self._db_path, uri=True)
         fd, tmp_path = tempfile.mkstemp(suffix=".db", prefix="wars_dump_")
         os.close(fd)
         try:
-            dst = sqlite3.connect(tmp_path)
-            try:
-                src.backup(dst)
-            finally:
-                dst.close()
-                src.close()
+            subprocess.run(
+                [sys.executable, "-I", "-c", _BACKUP_SCRIPT, self._db_path, tmp_path],
+                check=True,
+                capture_output=True,
+                timeout=60,
+            )
             with open(tmp_path, "rb") as f:
                 return f.read()
         finally:
@@ -516,6 +523,20 @@ class WhatsApp:
 
     def __exit__(self, *_: object) -> None:
         self.disconnect()
+
+
+# Run by export_session in a child process: copy the live database at
+# argv[1] into argv[2] with SQLite's online backup API.
+_BACKUP_SCRIPT = """
+import sqlite3, sys
+src = sqlite3.connect(sys.argv[1], uri=True)
+dst = sqlite3.connect(sys.argv[2])
+try:
+    src.backup(dst)
+finally:
+    dst.close()
+    src.close()
+"""
 
 
 def _safe_unlink(path: str) -> None:
